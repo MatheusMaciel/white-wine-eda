@@ -1,0 +1,506 @@
+---
+title: ""
+author: "Matheus"
+date: "October 3, 2017"
+output: html_document
+---
+
+
+Wthite Wine EDA by Matheus Maciel
+========================================================
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# Load all of the packages that you end up using in your analysis in this code
+# chunk.
+
+# Notice that the parameter "echo" was set to FALSE for this code chunk. This
+# prevents the code from displaying in the knitted HTML output. You should set
+# echo=FALSE for all code chunks in your file, unless it makes sense for your
+# report to show the code that generated a particular plot.
+
+# The other parameters for "message" and "warning" should also be set to FALSE
+# for other code chunks once you have verified that each plot comes out as you
+# want it to. This will clean up the flow of your report.
+
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+library(psych)
+library(reshape)
+library(RColorBrewer)
+library(MASS)
+```
+
+```{r echo=FALSE, Load_the_Data}
+# Load the Data
+
+ww.data <- read.csv("data/wineQualityWhites.csv")
+
+# auxiliary functions
+
+remove.top.quantile <- function(data, limit=0.999){
+  return(subset(data, data < quantile(data, limit)))
+}
+
+```
+
+Esse relatório contém uma análies exploratória de quase 5 mil variantes do vinho branco Português "Vinho Verde" caracterizadas usando 12 métrticas.
+
+```{r, echo=FALSE, Data_overview}
+dim(ww.data)
+
+str(ww.data)
+
+summary(ww.data)
+```
+
+# Univariate Plots Section
+
+Como dito acima, cada variante é caracterizada por 12 métricas onde algumas delas são bastante técnicas outras são mais simples de relacionar com a qualidade do vinho como *volatile.acidity*, *citric.acid*, *residual.sugar* e *alcohol*. 
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, Univariate_Plots_1}
+
+base.graph <- ggplot(data = ww.data)
+
+qua.hist <- base.graph + geom_histogram(aes(x = as.factor(quality)), stat="count")
+
+qua.hist
+
+
+```
+
+
+Quase metade das variantes de vinho branco foram avaliadas com qualidade 6 e mais de dois terços foram avaliadas entre 5 e 7.
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, fig.height = 10, Univariate_Plots_2}
+
+va.hist <- base.graph + geom_histogram(aes(x = volatile.acidity))
+ca.hist <- base.graph + geom_histogram(aes(x = citric.acid))
+rs.hist <- base.graph + geom_histogram(aes(x = residual.sugar))
+al.hist <- base.graph + geom_histogram(aes(x = alcohol))
+
+grid.layout <- rbind(c(1,2),
+                     c(3,4),
+                     c(5,6),
+                     c(7,7))
+
+
+grid.arrange(va.hist,
+             va.hist + scale_x_log10(),
+             ca.hist,
+             ca.hist + scale_x_log10(),
+             rs.hist,
+             rs.hist + scale_x_log10(),
+             al.hist,
+             layout_matrix = grid.layout)
+
+```
+
+
+A distribuição do percentual de álcool não parece ter um comportamento bimodal porém ela possui dois picos que se destacam aproximadamente em 9% e 11%. Já para os outros 3 atributos é possível perceber valores extremos fazendo com que os gráficos fiquem enviesados. Após transformar a escala usando a função log10, *residual.sugar* parece seguir uma distribuição bimodal com picos em 4 e 9 g/dm^3. *volatile.acidity* se tornou mais semelhante com uma distribuição normal enquanto *citric.acid* mudou o viés da direita para a esquerda. 
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, Univariate_Plots_3}
+
+ph.hist <- base.graph + geom_histogram(aes(x = pH))
+
+ph.hist
+
+```
+
+
+Como esclarecido na descrição dos dados, o pH da maioria dos vinhos está entre 3 e 4. No caso do conjunto de dados sendo analisado, a maioria das variantes estão entre 3 e 3,3. Sabendo que a escala de pH vai de 0 a 14, é possível afimar que a variação de pH não é tão grande entretanto existe a possibilidade que pequenas mudanças no pH tenham influência significante na qualidade do vinho.
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, Univariate_Plots_4}
+
+fsd.hist <- base.graph + geom_histogram(aes(x = free.sulfur.dioxide))
+tsd.hist <- base.graph + geom_histogram(aes(x = total.sulfur.dioxide))
+su.hist <- base.graph + geom_histogram(aes(x = sulphates))
+
+fsd.hist + scale_x_log10(breaks=c(10,25,50,100,200),labels=c(10,25,50,100,200))
+tsd.hist + scale_x_log10(breaks=c(25,50,100,200,300),labels=c(25,50,100,200,300))
+su.hist
+
+```
+
+
+Os três atributos acima indicam a quantidade de substâncias usadas principalmente como antimicrobiano e antioxidante mas que a partir de certos níves podem influnciar indiretamente a qualidade do vinho. No caso dos níveis de dióxido de enxofre (SO2), a marioria dos valores está entre 25 e 50 mg/dm^3 livre e 100 e 200 mg/dm^3 total. Também é notável que uma quantidade considerável das variantes de vinho possui quantidade de SO2 livre maiores que 50 mg/dm^3 de forma que a substância começar a influenciar tanto o cheiro quanto o sabor do vinho. Para a quantidade de sulfatos a maioria dos valores está entre 0,3 e 0,6 g/dm3.
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, Univariate_Plots_5}
+
+fa.hist <- base.graph + geom_histogram(aes(x = fixed.acidity))
+cl.hist <- base.graph + geom_histogram(aes(x = chlorides))
+den.hist <- base.graph + geom_histogram(aes(x = density))
+
+den.hist
+fa.hist + scale_x_log10(breaks=c(5, 7, 10),labels=c(5, 7, 10))
+cl.hist
+
+
+```
+
+
+Como esperado os valores de *density* estão próximo de 1 g/cm^3. Além disso, grande parte dos valores de *fixed.acidity* estão entre 5 e 10 g/dm^3 com pico em 7 g/dm^3. Por último, os valores de *chlorides* estão entre 0 e 0,1 g/dm^3 que numericamente é uma variação pequena mas dentro desse contexto pode ter influência na qualidade do vinho.
+
+
+# Univariate Analysis
+
+### What is the structure of your dataset?
+
+Existem 4898 variantes de vinho branco descritas por 12 atributos (*fixed.acidity*, *volatile.acidity*, *citric.acid*, *residual.sugar*, *chlorides*, *free.sulfur.dioxide*, *total.sulfur.dioxide*, *density*, *pH*, *sulphates*, *alcohol* and *quality*). Todos os atributos com exceção de *quality* são variáveis númericas sendo 9 deles densidades (g/dm^3^ ou mg/dm^3^). *quality* é uma variável qualitativa ordinal que vai de 0 a 10 onde 0 é a pior qualidade e 10 a melhor.
+
+Observações interessantes:
+
+* Menos de 4% das variantes foram de qualidade maior que 7 sendo que nenhuma dela tem qualidade 10.
+* A porcentagem média de *alcohol* é 10.51% semelhante a mediana de 10,40%.
+* A maioria das variantes tem pH 3,14
+
+### What is/are the main feature(s) of interest in your dataset?
+
+O principal atributo desse conjunto de dados é a qualidade da variante de vinho branco. O objetivo dessa análise é descobrir quais dos outro atributos são úteis para prever a qualidado do vinho. Como já foi dito na seção anterior, alguns atributos parecem ter relação mais direta com o sabor do vinho que pode levar a melhores avaliações de qualidade.
+
+### What other features in the dataset do you think will help support your \
+investigation into your feature(s) of interest?
+
+As duas variáveis que indicam os níveis de dióxido de enxofre (SO2) podem ajudar na tarefa de previsão da qualidade dado que a partir de certos níveis a presença da substância começa a influenciar o cheiro e sabor do vinho.
+
+### Did you create any new variables from existing variables in the dataset?
+
+Não.
+
+### Of the features you investigated, were there any unusual distributions? \
+Did you perform any operations on the data to tidy, adjust, or change the form \
+of the data? If so, why did you do this?
+
+Vários atributos possuem valores muito grandes que tornam as distribuições enviesadas para a direita. Em todos esse casos, os valores foram transformados usando a função log na base 10. Dessa forma foi possível ver o formato dos dados sem a influência "completa" dos outliers. No geral, todas os atributos transformados parecem seguir distribuição normal com exceção de *residual.sugar* que parece seguir uma distribuição bimodal.
+
+
+# Bivariate Plots Section
+
+Dos atributos citados na seção anterior apenas o nível de álcool possui correlção considerar média-alta com a qualidade do vinho. No caso de *volatile.acidity* e *total.sulfur.dioxide* os valores de correção não chegam a ser médios mas indicam que os eles podem ajudar na previsão da qualidade. É interessante ressaltar que a correlação entre *alcohol* e *total.sulfur.dioxide* é de -0,45 que pode ser considerada média-alta então talvez não seja interessante ou necessário usa-las em conjunto. 
+
+
+```{r echo=FALSE, Bivariate_Plots_1}
+
+interest.columns <- c("volatile.acidity", "citric.acid", "residual.sugar", "alcohol", "free.sulfur.dioxide", "total.sulfur.dioxide", "quality")
+other.columns <- c("fixed.acidity", "chlorides", "density", "pH", "sulphates", "quality")
+
+
+#separei os plots para ficar mais visível
+pairs.panels(ww.data %>% dplyr::select(interest.columns), method="kendall")
+pairs.panels(ww.data %>% dplyr::select(other.columns), method="kendall")
+
+```
+
+Dentre os outros atributos, dois deles possuem correlações que podem indicar sua utilidade na previsão da qualidade. São eles *density* e *chlorides*. Os outros atributos não possuem correlação significantes para o obejtivo desse relatório. Assim como *alcohol* e *total.sulfur.dioxide*, *density* e *chlorides* possuem correlação baixa-média entre si, logo existe a possibilidade da não utilização de um deles. Para facilitar a visualição, o gráfico abaixo contém as correlações entre as variáveis selecionadas.
+
+```{r echo=FALSE, Bivariate_Plots_2}
+
+selected.columns <- c("volatile.acidity", "density", "chlorides", "alcohol", "total.sulfur.dioxide", "quality")
+unselected.columns <- setdiff(colnames(ww.data), selected.columns)
+
+pairs.panels(ww.data %>% dplyr::select(selected.columns))
+
+```
+
+Como comentado acima, existe correlção entre os atributos selecionados. Destaque para a correlação entre *density* e *alcohol* que pode ser considerada alta.
+
+Em seguida, as variáveis selecionadas são comparadas com a qualidade.
+
+```{r echo=FALSE, Bivariate_Plots_3}
+
+ww.data$quality <- factor(ww.data$quality, levels=0:10)
+
+base.graph <- ggplot(data = ww.data)
+
+al.qua.plot <- base.graph +
+  geom_boxplot(aes(y = alcohol, x = quality, group = quality)) +
+  scale_x_discrete(drop=FALSE)
+
+
+al.qua.plot
+describeBy(ww.data$alcohol, ww.data$quality)
+
+```
+
+É possível notar que a menor mediana possui tendência decrescente até qualidade 5 quando atinge o valor 9.5%, entretanto, para vinhos com qualidade acima de 5 existe uma certa tendência que indica o crescimento do percentual de *alcohol* com o crescimento da qualidade do vinho alcançando o valor 12,5%. É interessante notar que o *box* para a qualidade 9 é menor que os demais, possivelmente devido a quantidade reduzida de variantes de vinho nessa categoria. 
+
+```{r echo=FALSE, Bivariate_Plots_4}
+
+den.qua.plot <- ggplot(subset(ww.data, density <= quantile(ww.data$density, 0.999))) +
+  geom_boxplot(aes(y = density, x = quality, group = quality)) +
+  scale_x_discrete(drop=FALSE)
+
+
+den.qua.plot
+describeBy(ww.data$density, ww.data$quality)
+
+```
+
+Diferente do atributo anterior, é possível notar que com o aumento da qualidade do vinho a densidade do mesmo tende a diminuir. Sabendo da relação entre *alcohol* e *quality*, esse comportamente é esperado pois a densidade do vinho leva em conta o percentual de álcool. Confirmando o que foi comentado anteriormente, não faz sentido usar *alcohol* e *density* em conjunto para prever a qualidade do vinho. É interessante ressaltar que a variação na mediana da densidade é bem pequena entre os níveis de qualidade, apenas 0,01.
+
+```{r echo=FALSE, Bivariate_Plots_5}
+
+clo.qua.plot <- ggplot(subset(ww.data, chlorides <= quantile(ww.data$chlorides, 0.95))) +
+  geom_boxplot(aes(y = chlorides, x = quality, group = quality)) +
+  scale_x_discrete(drop=FALSE)
+
+
+clo.qua.plot
+describeBy(ww.data$chlorides, ww.data$quality)
+
+```
+
+
+O mesmo comportamento, visual e numérico, encontrado na densidade pode ser verificado na quantidade de *chlorides*. A mediana do grupo de menor qualidade é 0,05 e vai diminuindo com o aumento da qualidade do vinho até atingir o valor 0,03.
+
+```{r echo=FALSE, Bivariate_Plots_6}
+
+va.qua.plot <- ggplot(subset(ww.data, volatile.acidity <= quantile(ww.data$volatile.acidity, 0.95))) +
+  geom_boxplot(aes(y = volatile.acidity, x = quality, group = quality)) +
+  scale_x_discrete(drop=FALSE)
+
+
+va.qua.plot
+describeBy(ww.data$volatile.acidity, ww.data$quality)
+
+```
+
+
+Não foi possível verificar visualmente nenhum padrão quando *volatile.acidity* e *quality* são comparados. Nesse caso, a mediana aumenta da qualidade 3 pra 4 e diminui até a qualidade 7, voltando a subir após isso.
+
+
+```{r echo=FALSE, Bivariate_Plots_7}
+
+tsd.qua.plot <- ggplot(subset(ww.data, total.sulfur.dioxide <= quantile(ww.data$total.sulfur.dioxide, 0.999))) +
+  geom_boxplot(aes(y = total.sulfur.dioxide, x = quality, group = quality)) +
+  scale_x_discrete(drop=FALSE)
+
+
+tsd.qua.plot
+describeBy(ww.data$total.sulfur.dioxide, ww.data$quality)
+
+```
+
+
+Não foi possível verificar nenhuma tendência de crescimento o redução nos níveis de *total.sulfur.dioxide*, porém, fica notável no gráfico uma leve diminuição no range de valores com o crescimento da qualidade. Vinho avaliados com qualidade 9 estão dentro de um range de 54 mg/dm^3^.
+
+
+```{r echo=FALSE, warning=FALSE, fig.height = 10, Bivariate_Plots_8}
+
+
+
+ww.data.long <- ww.data %>%
+  dplyr::select(unselected.columns, quality) %>%
+  melt(id=c("X", "quality"))
+
+unsel.plot <- ggplot(ww.data.long) +
+  geom_boxplot(aes(x = quality, y = value, group = quality)) +
+  scale_y_log10() +
+  facet_wrap(~ variable, scales = "free_y", ncol = 2)
+
+
+unsel.plot
+
+
+```
+
+Como foi identificado a partir dos valores de correlação, as demais variáveis não demonstram possuir influência visível na qualidade do vinho. Também é possível notar que algumas delas possuem o mesmo comportamento de *total.sulfur.dioxide* onde existe uma leve diminuição na variação dos valores com o aumento da qualidade.
+
+# Bivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. How did the feature(s) of interest vary with other features in \
+the dataset?
+
+Após visualizar a relação entre as variáveis de interesse e as demais variáveis foi possível confirmar parte das teorias criadas na anpalise univariada.
+
+Indo de encontro ao esperado *citric.acid* e *residual.sugar* possuem correlação baixa, apenas 0,01 e -0,06, com a qualidade do vinho. Como o vinho foi avaliado por especialistas, existe a possibiilidade do sabor proporcionado pelas substâncias em questão não seja o procurado pelos mesmos.
+
+*Alcohol* e *volatile.acidity* confirmaram as espectativas e mostraram ter correlação com a qualidade do vinho, o primeiro mais que o segundo. Além disso, *density*, *chlorides* e *total.sulfur.dioxide* mostraram ter relação com a qualidade do vinho.
+
+Dos atributos que possuem relação significante com a qualidade, alguns deles possuem alta correlação entre si. Dessa forma, não é indicado utiliza-los em conjunto na previsão da qualidade.
+
+### Did you observe any interesting relationships between the other features \
+(not the main feature(s) of interest)?
+
+*Alcohol* e *density* possuem alta correlação. Esse comportamento é esperado dado que o percentual de álcool influencia a densidade do vinho como é descrito no dicionário dos dados.
+
+### What was the strongest relationship you found?
+
+O atributo com maior relação com a qualidade foi o percentual de álcool no vinho. Tanto numericamente (correlação) quanto visualmente (boxplots), *alcohol* é o candidato mais promissor.
+
+
+# Multivariate Plots Section
+
+Como foi comentado na análise acima, o atributo com maior correlação com qualidade foi *alcohol*:
+
+```{r echo=FALSE, Multivariate_Plots_1}
+
+fit <- lm(as.numeric(quality) ~ alcohol, data = ww.data)
+
+summary(fit)
+
+```
+
+O R^2^ do modelo criado mostra que o atributo *alcohol* consegue explicar aproximadamente 19% da variação da qualidade. Sendo assim, é interessante verificar se a utilização de outros atributo em conjunto com com *alcohol* podem ajudar na previsão.
+
+```{r echo=FALSE, Multivariate_Plots_2}
+
+al.vol.qua.plot <- ggplot(ww.data, aes(x = alcohol, y = volatile.acidity, color = factor(quality))) +
+  geom_point(size = 3, alpha = 1/4) +
+  geom_smooth(method = "lm", se = FALSE, size=1) +
+  scale_y_log10() +
+  scale_color_brewer(palette = "Blues")
+
+al.vol.qua.plot
+
+summary(lm(formula = as.numeric(quality) ~ alcohol + volatile.acidity, data = ww.data))
+
+```
+
+No caso de *volatile.acidity*, é possível notar que os pontos mais claros (menor qualidade) estão mais concetrados para valores maiores de *volatile.acidity* e menores de *alcohol*. Já os vinhos com maior qualidade parecem estar concentrados na área com maiores valores das duas variáveis. O modelo criado confirma que a segunda variável não ajudar tanto, aumentando apenas em 5% o R^2^. As linhas de regressão ajudam a perceber que é visualmente mais simples diferenciar os níveis de qualidade usando *volatile.acidity* para as variantes de vinho com percentual de álcool abaixo de 11%.
+
+Realizando a mesma análise para os demais atributos selecionados:
+
+```{r echo=FALSE, Multivariate_Plots_3}
+
+al.chl.qua.plot <- ggplot(ww.data, aes(x = alcohol, y = chlorides, color = factor(quality))) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = FALSE, size=1) +
+  scale_color_brewer(palette = "Blues") +
+  scale_y_log10()
+
+al.chl.qua.plot
+
+summary(lm(formula = as.numeric(quality) ~ alcohol + chlorides, data = ww.data))
+
+
+```
+
+```{r echo=FALSE, Multivariate_Plots_4}
+
+al.tsd.qua.plot <- ggplot(ww.data, aes(x = alcohol, y = total.sulfur.dioxide, color = factor(quality))) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = FALSE, size=1) +
+  scale_color_brewer(palette = "Blues") +
+  scale_y_log10()
+
+al.tsd.qua.plot
+
+summary(lm(formula = as.numeric(quality) ~ alcohol + total.sulfur.dioxide, data = ww.data))
+
+
+```
+
+```{r echo=FALSE, Multivariate_Plots_5}
+
+al.den.qua.plot <- ggplot(ww.data, aes(x = alcohol, y = density, color = factor(quality))) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = FALSE, size=1) +
+  scale_color_brewer(palette = "Blues")
+
+al.den.qua.plot
+
+summary(lm(formula = as.numeric(quality) ~ alcohol + density, data = ww.data))
+
+
+```
+
+Das variáveis selecionadas apenas *volatile.acidity* conseguiu uma melhora razoável no modelo criado. É interessante citar que com exceção de *total.sulfur.dioxide*, todos os atributos citados se mostraram significantes para o modelo criado. Esse comportamento é confirmado olhando para as linhas de regressão, é difícil separar os níveis de qualidade usando os demais atributos.
+
+Com o intuito de comparar modelos, decidi criar um modelo de regressão linear que usa todas as variáveis existentes no conjunto de dados:
+
+
+```{r echo=FALSE, Multivariate_Plots_6}
+
+summary(lm(formula = as.numeric(quality) ~ ., data = ww.data[,-1]))
+
+
+```
+
+Quando os modelos são comparados, o aumento do R^2^ com a utilização do restante dos atributos é de apenas 4%. Em alguns casos, o pequeno ganho pode não compensar o custo.
+
+# Multivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. Were there features that strengthened each other in terms of \
+looking at your feature(s) of interest?
+
+Com base no fato de que *alcohol* foi o atributo com maior correlação com a qualidade, a combinação *volatile.acidity* foi o atributo que conseguiu melhores resultados. A utilização dos demais atributos conseguem melhorar o R^2^ em 4%.
+
+É interessante citar que mesmo que alguns atributos não melhorem muito os modelos, eles ainda são significantes.
+
+### Were there any interesting or surprising interactions between features?
+
+Não.
+
+### OPTIONAL: Did you create any models with your dataset? Discuss the \
+strengths and limitations of your model.
+
+Sim. Após testar algumas combinações acredito que a combinação mais eficiente foi usando o percentual de álcool e o nível de acidez volátil.
+
+O modelo consegue explicar apenas 24% da variação da qualidade. Em certos contextos esse valor pode ser considerado baixo, entretanto, como a qualidade do vinho calculada por especialistas existe o fator humano que muitas vezes é dificil de ser representado.
+
+------
+
+# Final Plots and Summary
+
+### Plot One
+```{r echo=FALSE, Plot_One}
+
+pairs.panels(ww.data %>% dplyr::select(selected.columns), main = "Correlograma dos atributos de interesse")
+
+```
+
+### Description One
+
+Dos 11 atributos apenas 5 possuem correlção razoável com a qualidade do vinho. Alguns deles possuem alta correlação entre si com destaque para *alcohol* e *density* que foram os atributos com maior correlação com a qualidade do vinho. O correlograma fornece uma visão geral do relacionamento entre os atributos de forma que ajuda a focar a análise. No caso, descobrir quais os atributos mais indicados para a previsão da qualidade do vinho.
+
+### Plot Two
+```{r echo=FALSE, Plot_Two}
+
+al.qua.plot +
+  scale_x_discrete(breaks=0:10,labels=0:10, drop=FALSE) +
+  ggtitle("Percentual de álcool no vinho por nível de qualidade") +
+  xlab("Quality") +
+  ylab("Alcohol (%)") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+### Description Two
+
+O uso boxplot permite fazer um *zoom* na informação fornecida pelo correlograma com o objetivo de obter informação visual sobre o relacionamento entre os atributos e a qualidade do vinho. *Alcohol*, visualemente, parece ser o atributo com maior influência na qualidade do vinho. Existe uma tendência clara do crescimento da qualidade do vinho com o crescimento do percentual de álcool. 
+
+### Plot Three
+```{r echo=FALSE, Plot_Three}
+
+al.vol.qua.plot +
+  ggtitle("Percentual de álcool no vinho por nível de acidez\n volátil agrupado por nível de qualidade do vinho.") +
+  ylab("Acidez volátil (g/dm^3)") +
+  xlab("Álcool (%)") +
+  scale_color_brewer(palette = "Blues", name = "Qualidade") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+### Description Three
+
+O *scatterplot* é útil na comparação entre mais de 2 atributos numéricos por possibilitar a utilização de canais como cor, tamanho, formato do ponto, etc... para codificar outras informações. No gráfico acima, é possível avaliar o relacionameto entre os dois atributos mais promissores para a previsão da qualidade do vinho. Mesmo não existindo separação totalmente clara entre os níveis de qualidade, das comparações realizadas, *alcohol* e *volatile.acidity* foi que conseguiu separar melhor os níveis de qualidade dos vinhos.
+
+------
+
+# Reflection
+
+Como não possuia nenhum conhecimento sobre o assunto, foi necessário usar o dicionário de dados com frequência. Incialmente considerando que a qualidade do vinho é fortemente relacionada com os sabor do vinho (doce, pouco ácido, etc...) alguns atributos se destacaram como possíves candidatos a serem utilizados na previsão da qualidade do vinho. 
+
+No decorrer da análise notei que considerar apenas o sabor como principal métrica de qualidade não era realista dado que algumas das substâncias diretamente relacionadas com o sabor não apresentaram alta correlação com a qualidade do vinho. No final, o percentual de álcool se destacou entre os demais atributos.
+
+Ainda assim, posso afirmar que nenhum dos atributos obteve correlação alta com a qualidade do vinho. Avaliando os gráficos realizados, é possível que alguns atributos possuam correlação não linear com a qualidade. Um trabalho futuro seria explorar essa possibilidade e a partir disso avaliar a possibilidade de usar modelos não lineares para a previsão da qualidade.
+
+Nessa análise decide prever a qualidade do vinho como um valor numérico. Existe a possibilidade de encarar o problema como um problema de classficação ao invés de regressão.
